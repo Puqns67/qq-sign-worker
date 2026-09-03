@@ -1,7 +1,12 @@
-// qq-sign.js
+// worker.js
 //
 // Example:
-// https://<domain>/https://qqdl.gtimg.cn/qqfile/QQNTV2/xxx/release/xxx/QQ_xxx_xxx_xxx_01.deb
+// https://<domain>/https://qqdl.gtimg.cn/qqfile/QQNTV2/WIN_VER/release/MD5_PREFIX/QQ_VER_DATE_ARCH_01.EXT
+// Response:
+// https://qqdl.gtimg.cn/qqfile/QQNTV2/WIN_VER/release/MD5_PREFIX/QQ_VER_DATE_ARCH_01.EXT?sign=SIGN&t=TIMESTAMP
+
+const ALLOWED_URL =
+  /^https?:\/\/qqdl\.gtimg\.cn\/qqfile\/QQNTV2\/[\d\.]+\/release\/[0-9a-f]{8}\/QQ_[\d\.]+_[0-9]{6}(?:_[^_]+)?_\d{2}\.(?:exe|deb|rpm|AppImage|dmg)$/;
 
 const SIGN_API =
   "https://im.qq.com/http2rpc/gotrpc/noauth/trpc.qqntv2.urlsign.UrlSign/GetSign";
@@ -41,21 +46,21 @@ async function sign(rawUrl) {
 
 export default {
   async fetch(request, env, ctx) {
-    const rawUrl = decodeURIComponent(new URL(request.url).pathname).replace(/^\//, "");
-    if (!rawUrl || !rawUrl.startsWith("http")) {
-      return new Response(`path error: ${rawUrl}`, { status: 400 });
+    const url = decodeURIComponent(new URL(request.url).pathname).replace(/^\//, "");
+    if (!ALLOWED_URL.test(url)) {
+      return new Response(`invalid url: ${url}`, { status: 400 });
     }
 
-    let signed;
+    let signed_url;
     try {
-      signed = await sign(rawUrl);
+      signed_url = await sign(url);
     } catch (e) {
       return new Response(`sign error: ${e.message}`, { status: 502 });
     }
 
     if (request.method === "HEAD") {
-      return new Response(null, { status: 302, headers: { Location: signed } });
+      return new Response(null, { status: 302, headers: { Location: signed_url } });
     }
-    return Response.redirect(signed, 302);
+    return Response.redirect(signed_url, 302);
   },
 };
